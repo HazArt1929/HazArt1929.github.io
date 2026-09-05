@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Блог — Мой уголок интернета</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Блог</h1>
+  <nav><a href="index.html">Главная</a> <a href="blog.html">Блог</a> <a href="guestbook.html">Гостевая книга</a>
+  <a href="#" id="logout" class="logout" hidden>выйти</a></nav>
+  <a class="icon-btn" href="#" id="authBtn" title="Вход для автора">🔑</a>
+</header>
+<main>
+  <p id="status"></p>
+  <form id="postForm" class="panel" hidden>
+    <h2 id="formTitle">Новый пост</h2>
+    <label>Заголовок: <input id="fTitle" type="text"></label>
+    <label>Текст: <textarea id="fText" rows="6"></textarea></label>
+    <button id="fSave">Сохранить</button> <button type="button" id="fCancel">Отмена</button>
+  </form>
+  <div id="posts"><p>Загрузка…</p></div>
+</main>
+<footer><p><a href="index.html">← на главную</a></p></footer>
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbySE_tJxfu4cXqCnepKT48zfdhnKPuYbTUCy2QQd_ja-JtlMretgKlq9xWtLJA3lafZuw/exec';
+let admin=false, adminPass=null, editingId=null, DATA={posts:[],comments:[]};
+const $=id=>document.getElementById(id);
+const esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML;};
+const api=d=>fetch(API,{method:'POST',body:JSON.stringify(d)}).then(r=>r.json());
+async function load(){ DATA=await (await fetch(API)).json(); render(); }
+
+function render(){
+  const box=$('posts'); box.innerHTML='';
+  const posts=[...DATA.posts].sort((a,b)=>Number(b.id)-Number(a.id));
+  if(!posts.length) box.innerHTML='<p>Постов пока нет.</p>';
+  for(const p of posts){
+    const art=document.createElement('article');
+    art.innerHTML=`<h2>${esc(p.title)} ${admin?`<a href="#" class="edit-btn" data-id="${p.id}">✏️ исправить</a>`:''}</h2>
+      <p class="date">${esc(p.date)}</p><p class="post-text">${esc(p.text)}</p>`;
+    const cm=DATA.comments.filter(c=>String(c.post_id)===String(p.id));
+    const cdiv=document.createElement('div'); cdiv.className='comments';
+    if(cm.length) cdiv.innerHTML=`<h3>Комментарии (${cm.length})</h3>`+cm.map(c=>`<p class="comment"><b>${esc(c.name)}</b> <span class="date">${esc(c.date)}</span><br>${esc(c.text)}</p>`).join('');
+    cdiv.innerHTML+=`<form class="comment-form" data-id="${p.id}">
+      <label>Имя/ник: <input name="name" required></label>
+      <label>Пароль: <input name="pass" type="password" required></label>
+      <label>Комментарий: <textarea name="text" rows="3" required></textarea></label>
+      <button>Отправить</button></form>`;
+    art.appendChild(cdiv); box.appendChild(art);
+  }
+  box.querySelectorAll('.edit-btn').forEach(b=>b.onclick=e=>{e.preventDefault();startEdit(b.dataset.id);});
+  box.querySelectorAll('.comment-form').forEach(f=>f.onsubmit=async e=>{
+    e.preventDefault();
+    const r=await api({action:'comment',post_id:f.dataset.id,name:f.elements['name'].value,pass:f.elements['pass'].value,text:f.elements['text'].value});
+    $('status').textContent=r.ok?'Комментарий опубликован!':r.error;
+    if(r.ok){f.reset();load();}
+  });
+}
+
+$('authBtn').onclick=async e=>{
+  e.preventDefault();
+  if(admin){openForm(null);return;}
+  const pass=prompt('Пароль автора:'); if(!pass)return;
+  const r=await api({action:'login',pass});
+  if(r.ok){admin=true;adminPass=pass;$('authBtn').textContent='📝';$('logout').hidden=false;openForm(null);render();}
+  else alert('Неверный пароль');
+};
+$('logout').onclick=e=>{e.preventDefault();admin=false;adminPass=null;$('authBtn').textContent='🔑';e.target.hidden=true;$('postForm').hidden=true;render();};
+function openForm(id){
+  editingId=id;
+  if(id){const p=DATA.posts.find(x=>String(x.id)===String(id));$('formTitle').textContent='Исправить пост';$('fTitle').value=p.title;$('fText').value=p.text;}
+  else{$('formTitle').textContent='Новый пост';$('fTitle').value='';$('fText').value='';}
+  $('postForm').hidden=false;
+}
+$('fCancel').onclick=()=>{$('postForm').hidden=true;};
+$('fSave').onclick=async e=>{
+  e.preventDefault();
+  const title=$('fTitle').value.trim(),text=$('fText').value.trim();
+  if(!title||!text)return alert('Заполни заголовок и текст');
+  const r=editingId?await api({action:'edit_post',pass:adminPass,id:editingId,title,text})
+                   :await api({action:'save_post',pass:adminPass,title,text});
+  if(r.ok){$('postForm').hidden=true;load();}else alert(r.error);
+};
+load();
+</script>
+</body>
+</html>
