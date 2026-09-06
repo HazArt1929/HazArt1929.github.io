@@ -1,36 +1,107 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>Гостевая книга — Мой уголок интернета</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Гостевая книга — Мой уголок интернета</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .gb-frame{border:6px solid #000080;background:#000080;padding:8px;max-width:520px;margin:20px auto;}
+  .gb-panel{background:#aecde6;padding:12px;font-family:Verdana,Arial,sans-serif;font-size:13px;}
+  .gb-panel input{width:100%;margin-bottom:10px;padding:3px;font:inherit;border:1px solid #666;}
+  .toolbar{margin-bottom:6px;}
+  .toolbar button,.toolbar select{background:#d4d0c8;border:2px outset #fff;font-size:12px;padding:2px 6px;margin-right:4px;cursor:pointer;}
+  .toolbar button:active{border-style:inset;}
+  #gMsg{width:100%;height:120px;font:inherit;border:1px solid #666;background:#f4f6f8;padding:6px;}
+  .gb-send{margin-top:8px;background:#d4d0c8;border:2px outset #fff;padding:3px 14px;cursor:pointer;}
+  .smile-row{margin-bottom:6px;}
+  .gb-entry{background:#eef4fb;border:1px solid #9bb;padding:8px;margin-bottom:10px;}
+  .gb-entry img{max-width:100%;}
+</style>
 </head>
 <body>
-  <header>
-    <h1>Гостевая книга</h1>
-    <nav>
-      <a href="index.html">Главная</a>
-      <a href="blog.html">Блог</a>
-      <a href="guestbook.html">Гостевая книга</a>
-    </nav>
-  </header>
-
-  <main>
-    <p>Оставь имя и сообщение — оно придёт мне на почту, и я отвечу.</p>
-    <form action="https://formspree.io/f/mwlkqydb" method="POST">
-      <p><label>Имя / никнейм:
-        <input type="text" name="name" required>
-      </label></p>
-      <p><label>Твой e-mail (куда отвечать):
-        <input type="email" name="email" required>
-      </label></p>
-      <p><label>Сообщение:
-        <textarea name="message" rows="5" required></textarea>
-      </label></p>
-      <button type="submit">Отправить</button>
+<header>
+  <h1>Гостевая книга</h1>
+  <nav><a href="index.html">Главная</a> <a href="blog.html">Блог</a> <a href="guestbook.html">Гостевая книга</a></nav>
+</header>
+<main>
+  <div class="gb-frame"><div class="gb-panel">
+    <form id="gbForm">
+      <label>Name:</label>
+      <input type="text" id="gName" value="Anonymous" required>
+      <label>Email (optional, will be only visible to guestbook owner):</label>
+      <input type="email" id="gEmail">
+      <label>Message*:</label>
+      <div class="toolbar">
+        <button type="button" data-cmd="i" style="font-style:italic">I</button>
+        <button type="button" data-cmd="b" style="font-weight:bold">B</button>
+        <button type="button" data-cmd="u" style="text-decoration:underline">U</button>
+        <select id="fontSel"><option value="">font</option><option value="serif">serif</option><option value="sans">sans</option><option value="mono">mono</option><option value="comic">comic</option><option value="times">times</option></select>
+        <select id="colorSel"><option value="">цвет</option><option value="red">red</option><option value="blue">blue</option><option value="green">green</option><option value="purple">purple</option><option value="orange">orange</option><option value="pink">pink</option><option value="black">black</option><option value="gray">gray</option><option value="yellow">yellow</option><option value="brown">brown</option></select>
+        <button type="button" id="imgBtn" title="Картинка">🖼</button>
+        <button type="button" id="smileBtn" title="Смайлики">🙂</button>
+      </div>
+      <div class="smile-row" id="smileRow" hidden>
+        <button type="button" data-sm=":)">🙂</button><button type="button" data-sm=":D">😃</button><button type="button" data-sm=":(">🙁</button><button type="button" data-sm=";)">😉</button><button type="button" data-sm=":P">😛</button><button type="button" data-sm=":*">😘</button><button type="button" data-sm="<3">❤️</button>
+      </div>
+      <textarea id="gMsg" placeholder="Say something nice" required></textarea>
+      <br><button class="gb-send">Send</button>
     </form>
-  </main>
+  </div></div>
+  <p id="gbStatus"></p>
+  <h2>Записи</h2>
+  <div id="gbList"><p>Загрузка…</p></div>
+</main>
+<footer><p><a href="index.html">← на главную</a></p></footer>
+<script>
+const API = 'ВСТАВЬ_ТОТ_ЖЕ_URL_EXEC';
+const $=id=>document.getElementById(id);
+const esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML;};
+const FONTS={serif:'Georgia, serif',sans:'Arial, sans-serif',mono:'"Courier New", monospace',comic:'"Comic Sans MS", cursive',times:'"Times New Roman", serif'};
+const COLORS=['red','blue','green','purple','orange','pink','black','gray','yellow','brown','cyan','white'];
+const SM={':)':'🙂',':D':'😃',':(':'🙁',';)':'😉',':P':'😛',':*':'😘','&lt;3':'❤️'};
 
-  <footer><p><a href="index.html">← на главную</a></p></footer>
+function bbToHtml(src){
+  let s=esc(src);
+  s=s.replace(/\[b\]([\s\S]*?)\[\/b\]/gi,'<b>$1</b>');
+  s=s.replace(/\[i\]([\s\S]*?)\[\/i\]/gi,'<i>$1</i>');
+  s=s.replace(/\[u\]([\s\S]*?)\[\/u\]/gi,'<u>$1</u>');
+  s=s.replace(/\[color=([a-zA-Z]+)\]([\s\S]*?)\[\/color\]/gi,(m,c,t)=>COLORS.includes(c.toLowerCase())?'<span style="color:'+c.toLowerCase()+'">'+t+'</span>':t);
+  s=s.replace(/\[font=([a-z]+)\]([\s\S]*?)\[\/font\]/gi,(m,f,t)=>FONTS[f]?'<span style="font-family:'+FONTS[f]+'">'+t+'</span>':t);
+  s=s.replace(/\[img\](https?:\/\/[^\s\[\]]+?)\[\/img\]/gi,(m,u)=>'<img src="'+u+'" alt="">');
+  s=s.replace(/:D|:\)|:\(|;\)|:P|:\*|&lt;3/g,x=>SM[x]);
+  s=s.replace(/\n/g,'<br>');
+  return s;
+}
+
+const ta=$('gMsg');
+function wrap(o,c){
+  const s=ta.selectionStart,e=ta.selectionEnd,v=ta.value,sel=v.slice(s,e)||'текст';
+  ta.value=v.slice(0,s)+o+sel+c+v.slice(e); ta.focus();
+}
+document.querySelectorAll('.toolbar button[data-cmd]').forEach(b=>b.onclick=()=>wrap('['+b.dataset.cmd+']','[/'+b.dataset.cmd+']'));
+$('fontSel').onchange=e=>{if(e.target.value){wrap('[font='+e.target.value+']','[/font]');e.target.value='';}};
+$('colorSel').onchange=e=>{if(e.target.value){wrap('[color='+e.target.value+']','[/color]');e.target.value='';}};
+$('imgBtn').onclick=()=>{const u=prompt('Ссылка на картинку (обязательно https://)');if(u)ta.setRangeText('[img]'+u+'[/img]',ta.selectionStart,ta.selectionEnd,'end');};
+$('smileBtn').onclick=()=>{$('smileRow').hidden=!$('smileRow').hidden;};
+document.querySelectorAll('#smileRow button').forEach(b=>b.onclick=()=>{ta.setRangeText(b.dataset.sm,ta.selectionStart,ta.selectionEnd,'end');ta.focus();});
+
+$('gbForm').onsubmit=async e=>{
+  e.preventDefault();
+  const r=await fetch(API,{method:'POST',body:JSON.stringify({action:'guestbook',name:$('gName').value,email:$('gEmail').value,message:ta.value})}).then(x=>x.json());
+  $('gbStatus').textContent=r.ok?'Запись добавлена!':r.error;
+  if(r.ok){ta.value='';load();}
+};
+async function load(){
+  const data=await (await fetch(API)).json();
+  const list=$('gbList'); list.innerHTML='';
+  if(!data.guestbook.length){list.innerHTML='<p>Пока пусто. Будь первым!</p>';return;}
+  [...data.guestbook].reverse().forEach(g=>{
+    const div=document.createElement('div');div.className='gb-entry';
+    div.innerHTML='<b>'+esc(g.name)+'</b> <span class="date">'+esc(g.date)+'</span><br>'+bbToHtml(g.message);
+    list.appendChild(div);
+  });
+}
+load();
+</script>
 </body>
 </html>
